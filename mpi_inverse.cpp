@@ -27,7 +27,7 @@ int main(int argc, char **argv) //метод Гауса
 	
     //cout<<endl<<endl<<"Mpi realisation of Gauss method"<<endl;
     int i=0,j=0,k=0;
-    int n = 5;
+    int n = 7;
     //cout<<"Enter n: ";
     //cin>>n;
     int temp;
@@ -90,8 +90,7 @@ int main(int argc, char **argv) //метод Гауса
 ////////////////////////////////////////////////////////////////////
 	
 	//cout<<"start"<<endl;
-    MPI_Bcast (&Matrix[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
-     MPI_Bcast (&E[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
+   
     for(i=0; i<n; i++)
     {
         map[i]= i % nprocs;
@@ -101,11 +100,11 @@ int main(int argc, char **argv) //метод Гауса
     double tmp;
     for(k=0;k<n;k++)
     {
-		 MPI_Bcast (&Matrix[k*n + k], n-k, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
-		 MPI_Bcast (&E[k * n + k], n-k, MPI_DOUBLE,map[k], MPI_COMM_WORLD);
+		// MPI_Bcast (&Matrix[k*n + k], n-k, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		 //MPI_Bcast (&E[k * n + k], n-k, MPI_DOUBLE,map[k], MPI_COMM_WORLD);
 		if (fabs(Matrix[k*n +k]) < 1e-8 && !rank)
         {
-            // Ключ, говорязий о том, что был произведён обмен строк
+            // Ключ, говорящий о том, что был произведён обмен строк
             bool changed = false;
             
             // Идём по строкам, расположенным ниже исходной
@@ -132,47 +131,104 @@ int main(int argc, char **argv) //метод Гауса
                     break;
                 }
             }
-          //  cout<<"sth"<<endl;
+      
             // Если обмен строк произведён не был - матрица не может быть
             // обращена
             if (!changed)
             {
                 cout<<"Matrix cannot inverse!!!"<<endl;
+                return 0;
                 // Сообщаем о неудаче обращения
             }
-        }  
-		  
-			for (j = 0; j < n; j ++){
-				if (map[j] == rank){
-					
-					Matrix[k*n + j]   /= Matrix[k*n + k];
-					E[k*n + j] /= Matrix[k*n + k];
-				}
-			}        
-		
 			
-			// Идём по строкам, которые расположены ниже исходной
-			for (int i = k + 1; i < n; ++i)
-			{
-				// Запоминаем множитель - элемент очередной строки,
-				// расположенный под диагональным элементом исходной
-				// строки
-				double multi = Matrix[i*n + k];
+        }
+        
+         MPI_Bcast (&Matrix[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
+		 MPI_Bcast (&E[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
+		MPI_Barrier(MPI_COMM_WORLD); 
+        
+		if (!rank){
+			cout<<"OUTPUT rank 0"<<endl;
+				for (int i = 0; i < n*n ; i ++){
+				cout<<"->  ";
+					cout<<Matrix[i]<<" ";
+					if ((i+1) % n ==0 )
+						cout<<endl;
+				}
+			cout<<endl;
+		}
+		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank){
+			cout<<"OUTPUT rank 1"<<endl;
+				for (int i = 0; i < n*n ; i ++){
+				cout<<"-xx  ";
+					cout<<Matrix[i]<<" ";
+					if ((i+1) % n ==0 )
+						cout<<endl;
+				}
+			cout<<endl;
+		}
+		
+		for (j = 0; j < n; j ++){
+			if (map[j] == rank){
 				
-				// Отнимаем от очередной строки исходную, умноженную
-				// на сохранённый ранее множитель как в исходной,
-				// так и в единичной матрице
-				if (map[i] == rank){
-					for (int j = 0; j < n; ++j){
-						Matrix[i*n + j]  -= multi * Matrix[k*n + j];
-						E[i*n + j] -= multi * E[k*n + j];
-					}
+				Matrix[k*n + j]   /= Matrix[k*n + k];
+				E[k*n + j] /= Matrix[k*n + k];
+			}
+			MPI_Bcast (&Matrix[k*n +j], 1, MPI_DOUBLE, map[j], MPI_COMM_WORLD);
+			MPI_Bcast (&E[k * n + j], 1, MPI_DOUBLE,map[j], MPI_COMM_WORLD);  
+			MPI_Barrier(MPI_COMM_WORLD);
+		}      
+		
+		MPI_Barrier(MPI_COMM_WORLD);
+		// Идём по строкам, которые расположены ниже исходной
+		for (int i = k + 1; i < n; ++i)
+		{
+			// Запоминаем множитель - элемент очередной строки,
+			// расположенный под диагональным элементом исходной
+			// строки
+			double multi = Matrix[i*n + k];
+			
+			// Отнимаем от очередной строки исходную, умноженную
+			// на сохранённый ранее множитель как в исходной,
+			// так и в единичной матрице
+			if (map[i] == rank){
+				for (int j = 0; j < n; ++j){
+					Matrix[i*n + j]  -= multi * Matrix[k*n + j];
+					E[i*n + j] -= multi * E[k*n + j];
 				}
 			}
+			MPI_Bcast (&Matrix[i*n], n, MPI_DOUBLE, map[i], MPI_COMM_WORLD);
+			MPI_Bcast (&E[i * n ], n, MPI_DOUBLE,map[i], MPI_COMM_WORLD);
+			MPI_Barrier(MPI_COMM_WORLD);
 
+		}
+		
+		MPI_Barrier(MPI_COMM_WORLD);
     }
+     if (!rank){
+			cout<<"OUTPUT 2 rank 0"<<endl;
+				for (int i = 0; i < n*n ; i ++){
+				cout<<"->  ";
+					cout<<Matrix[i]<<" ";
+					if ((i+1) % n ==0 )
+						cout<<endl;
+				}
+			cout<<endl;
+		}
+		MPI_Barrier(MPI_COMM_WORLD);
+		if (rank){
+			cout<<"OUTPUT 2 rank 1"<<endl;
+				for (int i = 0; i < n*n ; i ++){
+				cout<<"-xx  ";
+					cout<<Matrix[i]<<" ";
+					if ((i+1) % n ==0 )
+						cout<<endl;
+				}
+			cout<<endl;
+		}
 	
-	 // Проходим по вернхней треугольной матрице, полученной
+	// Проходим по верхней треугольной матрице, полученной
     // на прямом ходе, снизу вверх
     // На данном этапе происходит обратный ход, и из исходной
     // матрицы окончательно формируется единичная, а из единичной -
@@ -180,7 +236,7 @@ int main(int argc, char **argv) //метод Гауса
     for (int k = n - 1; k > 0; --k)
     {
         // Идём по строкам, которые расположены выше исходной
-        for (int i = k - 1; i + 1 > 0; --i)
+        for (int i = k - 1; i >= 0; --i)
         {
             // Запоминаем множитель - элемент очередной строки,
             // расположенный над диагональным элементом исходной
@@ -196,8 +252,14 @@ int main(int argc, char **argv) //метод Гауса
 					Matrix[i*n + j]   -= multi * Matrix[k*n + j];
 					E[i*n + j] -= multi * E[k*n + j];
 				}
+				
+				
 			}
+			MPI_Bcast (&Matrix[i*n ], n, MPI_DOUBLE, map[i], MPI_COMM_WORLD);
+			MPI_Bcast (&E[i * n], n, MPI_DOUBLE, map[i], MPI_COMM_WORLD);  
+			MPI_Barrier(MPI_COMM_WORLD);
         }
+    //    MPI_Barrier(MPI_COMM_WORLD);
     }
      MPI_Barrier(MPI_COMM_WORLD);
  
@@ -208,10 +270,22 @@ int main(int argc, char **argv) //метод Гауса
 			//cout<<endl;
 		//}
 	//}
+	 if (!rank){
+			cout<<"OUTPUT FINAL MADAFUCKA "<<endl;
+				for (int i = 0; i < n*n ; i ++){
+				cout<<"->  ";
+					cout<<Matrix[i]<<" ";
+					if ((i+1) % n ==0 )
+						cout<<endl;
+				}
+			cout<<endl;
+			}
+			
 	if (rank ==0){
 		cout<< " time on wall: " <<  MPI_Wtime() - wall_timer << "\n";
 		cout<<" n "<< n<< endl;
 	}
+	MPI_Finalize();
 }
 
 
