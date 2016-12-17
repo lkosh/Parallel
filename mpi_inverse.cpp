@@ -27,7 +27,7 @@ int main(int argc, char **argv) //метод Гауса
 	
     //cout<<endl<<endl<<"Mpi realisation of Gauss method"<<endl;
     int i=0,j=0,k=0;
-    int n = 7;
+    int n = 50;
     //cout<<"Enter n: ";
     //cin>>n;
     int temp;
@@ -73,30 +73,14 @@ int main(int argc, char **argv) //метод Гауса
 					E[i*n + j] = 1.0;
 			}
 	}
-	//cout<<"M end"<<endl;
-    //if (!rank)
-		//cout<<nprocs<<endl;
-	//cout<<rank;
-	//if (!rank){
-		 //for (i = 0; i < n ; i ++){
-			 //cout<<"->  ";
-			//for (j = 0; j < n; j ++)
-				//cout<<Matrix[i][j]<<" ";
-			//cout<<endl;
-		//}
-	//}
-	//if (!rank)
-	double wall_timer = MPI_Wtime();//omp_get_wtime();
-////////////////////////////////////////////////////////////////////
 	
-	//cout<<"start"<<endl;
+	double wall_timer;
    
     for(i=0; i<n; i++)
     {
         map[i]= i % nprocs;
 		
     } 
-  //  cout<<"start 2 "<<endl;
     double tmp;
     for(k=0;k<n;k++)
     {
@@ -142,32 +126,11 @@ int main(int argc, char **argv) //метод Гауса
             }
 			
         }
-        
-         MPI_Bcast (&Matrix[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
+		 wall_timer = MPI_Wtime();//omp_get_wtime();
+		 MPI_Bcast (&Matrix[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
 		 MPI_Bcast (&E[0],n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
-		MPI_Barrier(MPI_COMM_WORLD); 
-        
-		if (!rank){
-			cout<<"OUTPUT rank 0"<<endl;
-				for (int i = 0; i < n*n ; i ++){
-				cout<<"->  ";
-					cout<<Matrix[i]<<" ";
-					if ((i+1) % n ==0 )
-						cout<<endl;
-				}
-			cout<<endl;
-		}
-		MPI_Barrier(MPI_COMM_WORLD);
-		if (rank){
-			cout<<"OUTPUT rank 1"<<endl;
-				for (int i = 0; i < n*n ; i ++){
-				cout<<"-xx  ";
-					cout<<Matrix[i]<<" ";
-					if ((i+1) % n ==0 )
-						cout<<endl;
-				}
-			cout<<endl;
-		}
+		 MPI_Barrier(MPI_COMM_WORLD); 
+		
 		
 		for (j = 0; j < n; j ++){
 			if (map[j] == rank){
@@ -187,12 +150,13 @@ int main(int argc, char **argv) //метод Гауса
 			// Запоминаем множитель - элемент очередной строки,
 			// расположенный под диагональным элементом исходной
 			// строки
-			double multi = Matrix[i*n + k];
+			if (map[i] == rank){
+				double multi = Matrix[i*n + k];
 			
 			// Отнимаем от очередной строки исходную, умноженную
 			// на сохранённый ранее множитель как в исходной,
 			// так и в единичной матрице
-			if (map[i] == rank){
+			
 				for (int j = 0; j < n; ++j){
 					Matrix[i*n + j]  -= multi * Matrix[k*n + j];
 					E[i*n + j] -= multi * E[k*n + j];
@@ -206,28 +170,8 @@ int main(int argc, char **argv) //метод Гауса
 		
 		MPI_Barrier(MPI_COMM_WORLD);
     }
-     if (!rank){
-			cout<<"OUTPUT 2 rank 0"<<endl;
-				for (int i = 0; i < n*n ; i ++){
-				cout<<"->  ";
-					cout<<Matrix[i]<<" ";
-					if ((i+1) % n ==0 )
-						cout<<endl;
-				}
-			cout<<endl;
-		}
+    
 		MPI_Barrier(MPI_COMM_WORLD);
-		if (rank){
-			cout<<"OUTPUT 2 rank 1"<<endl;
-				for (int i = 0; i < n*n ; i ++){
-				cout<<"-xx  ";
-					cout<<Matrix[i]<<" ";
-					if ((i+1) % n ==0 )
-						cout<<endl;
-				}
-			cout<<endl;
-		}
-	
 	// Проходим по верхней треугольной матрице, полученной
     // на прямом ходе, снизу вверх
     // На данном этапе происходит обратный ход, и из исходной
@@ -263,23 +207,7 @@ int main(int argc, char **argv) //метод Гауса
     }
      MPI_Barrier(MPI_COMM_WORLD);
  
-    //if (!rank){
-		//cout<<"OUTPUT 2"<<endl;
-		//for (i = 0; i < n*n ; i ++){
-			//cout<<Matrix[i]<<" ";
-			//cout<<endl;
-		//}
-	//}
-	 if (!rank){
-			cout<<"OUTPUT FINAL MADAFUCKA "<<endl;
-				for (int i = 0; i < n*n ; i ++){
-				cout<<"->  ";
-					cout<<Matrix[i]<<" ";
-					if ((i+1) % n ==0 )
-						cout<<endl;
-				}
-			cout<<endl;
-			}
+   
 			
 	if (rank ==0){
 		cout<< " time on wall: " <<  MPI_Wtime() - wall_timer << "\n";
